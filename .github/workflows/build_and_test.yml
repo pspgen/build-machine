@@ -39,6 +39,6 @@ jobs:
         with:
           load: true
           push: false
-          tags: psp-prerequisites:latest
+          tags: build-machine:newly-baked
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache

@@ -1,4 +1,4 @@
-# psp-prerequisites
+# build-machine image for building the images of pseudopotential generation tools
 
 This is the base image for build the images of pseudopotential generation tool containers.
 
