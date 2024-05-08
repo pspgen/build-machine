@@ -1,2 +1,2 @@
 # env.hcl
-REGISTRY = "ghcr.io/"
+REGISTRY = "ghcr.io"

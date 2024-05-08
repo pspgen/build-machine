@@ -18,8 +18,11 @@ variable "GNU_COMPILER_VERSION" {
 variable "LAPACK_VERSION" {
 }
 
+variable "REGISTRY" {
+}
+
 target "base" {
-    tags = ["${ORGANIZATION}/build-machine:latest"]
+    tags = ["${REGISTRY}/${ORGANIZATION}/build-machine:latest"]
     context = "."
     contexts = {
         base-image = "docker-image://${BASE_IMAGE}"
