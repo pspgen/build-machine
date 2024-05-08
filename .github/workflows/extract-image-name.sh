@@ -18,8 +18,7 @@
 #
 # Example output (real output is on one line):
 #
-# image={
-#   "BUILD_MACHINE_IMAGE": "ghcr.io/pspgen/base@sha256:8e57a52b924b67567314b8ed3c968859cad99ea13521e60bbef40457e16f391d",
+# image="ghcr.io/pspgen/build-machine@sha256:79a0f984b9e03b733304fda809ad3e8eec8416992ff334052d75da00cadb8f12"
 # }
 #
 # This json output is later turned to environment variables using fromJson() GHA builtin
@@ -31,5 +30,5 @@ if [[ -z ${BAKE_METADATA-} ]];then
     exit 1
 fi
 
-image=$(echo "${BAKE_METADATA}" | jq -c '. as $base |[to_entries[] |{"key": (.key|ascii_upcase|sub("-"; "_"; "g") + "_IMAGE"), "value": [(.value."image.name"|split(",")[0]),.value."containerimage.digest"]|join("@")}] |from_entries')
+image=$(echo "${BAKE_METADATA}" | jq -c '. as $base | to_entries[] | [(.value."image.name"|split(",")[0]),(.value."containerimage.digest")]|join("@")')
 echo "image=$image"
