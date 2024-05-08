@@ -1,8 +1,24 @@
 ---
 name: Build images and run tests and publish
 
+on:
+  pull_request:
+  push:
+      branches:
+          - main
+      tags:
+          - "v*"
+  workflow_dispatch:  
+
 env:
   BUILDKIT_PROGRESS: plain
+  FORCE_COLOR: 1
+
+# https://docs.github.com/en/actions/using-jobs/using-concurrency
+concurrency:
+    # only cancel in-progress jobs or runs for the current workflow - matches against branch & tags
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
 
 jobs:
 
@@ -55,7 +71,7 @@ jobs:
             BAKE_METADATA: ${{ steps.build-upload.outputs.metadata }}
 
   test:
-    runns-on: ubuntu-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
