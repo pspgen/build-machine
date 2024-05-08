@@ -96,8 +96,8 @@ jobs:
             username: ${{ github.actor }}
             password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: pull image from ghcr.io
-      run: docker pull ${{ needs.build.outputs.image}}
+      - name: pull image from ghcr.io
+        run: docker pull ${{ needs.build.outputs.image}}
 
   publish:
       runs-on: ubuntu-latest

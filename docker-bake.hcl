@@ -2,9 +2,6 @@ group "default" {
     targets = ["base"]
 }
 
-variable "VERSION" {
-}
-
 variable "ORGANIZATION" {
     default = "pspgen"
 }
@@ -27,7 +24,7 @@ variable "REGISTRY" {
 function "tags" {
   params = [image]
   result = [
-    "${REGISTRY}/${ORGANIZATION}/${image}:${VERSION}",
+    "${REGISTRY}/${ORGANIZATION}/${image}",
   ]
 }
 
