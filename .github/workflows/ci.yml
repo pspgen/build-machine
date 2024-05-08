@@ -122,7 +122,7 @@ jobs:
           registry: ["docker.io", "ghcr.io"]
       if: >-
           github.repository == 'pspgen/build-machine'
-          && github.ref_type == 'tag'
+          && (github.ref_type == 'tag' || github.ref_name == 'main')
 
       steps:
         - uses: actions/checkout@v4
@@ -155,6 +155,7 @@ jobs:
           with:
               images: ${{ matrix.registry }}/${{ github.repository_owner }}/build-machine
               tags: |
+                  type=edge,enable={{is_default_branch}}
                   type=raw,value={{tag}},enable=${{ github.ref_type == 'tag' && ! startsWith(github.ref_name, 'v') }}
                   type=raw,value=gnu-compiler-${{ env.GNU_COMPILER_VERSION }},enable=${{ github.ref_type == 'tag'  && startsWith(github.ref_name, 'v') }}
                   type=raw,value=libxc-${{ env.LIBXC_VERSION }},enable=${{ github.ref_type == 'tag' && startsWith(github.ref_name, 'v') }}
