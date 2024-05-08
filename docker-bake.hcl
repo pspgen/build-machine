@@ -2,6 +2,9 @@ group "default" {
     targets = ["base"]
 }
 
+variable "VERSION" {
+}
+
 variable "ORGANIZATION" {
     default = "pspgen"
 }
@@ -21,8 +24,19 @@ variable "LAPACK_VERSION" {
 variable "REGISTRY" {
 }
 
+function "tags" {
+  params = [image]
+  result = [
+    "${REGISTRY}/${ORGANIZATION}/${image}:${VERSION}",
+  ]
+}
+
+target "base-meta" {
+    tags = tags("build-machine")
+}
+
 target "base" {
-    tags = ["${REGISTRY}/${ORGANIZATION}/build-machine:latest"]
+    inherits = ["base-meta"]
     context = "."
     contexts = {
         base-image = "docker-image://${BASE_IMAGE}"

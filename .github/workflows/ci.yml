@@ -27,6 +27,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
+    outputs:
+      image: ${{ steps.build-upload.outputs.image }}
+
     steps:
       - name: Checkout Repo ⚡️
         uses: actions/checkout@v4
@@ -60,7 +63,7 @@ jobs:
             provenance: false
             set: |
                 *.platform=linux/amd64
-                *.output=type=registry,name-canonical=true
+                *.output=type=registry,name-canonical=true,push-by-digest=true
                 *.cache-from=type=gha
                 *.cache-to=type=gha,mode=max
 
@@ -93,7 +96,8 @@ jobs:
             username: ${{ github.actor }}
             password: ${{ secrets.GITHUB_TOKEN }}
 
-      # pull the image from build step and run tests
+    - name: pull image from ghcr.io
+      run: docker pull ${{ needs.build.outputs.image}}
 
   publish:
       runs-on: ubuntu-latest
