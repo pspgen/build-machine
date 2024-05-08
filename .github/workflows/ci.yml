@@ -1,0 +1,138 @@
+---
+name: Build images and run tests and publish
+
+env:
+  BUILDKIT_PROGRESS: plain
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout Repo ⚡️
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        if: ${{ inputs.platforms != 'linux/amd64' }}
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry 🔑
+        uses: docker/login-action@v3
+        with:
+            registry: ghcr.io
+            username: ${{ github.actor }}
+            password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and upload to ghcr.io 📤
+        id: build-upload
+        uses: docker/bake-action@v4
+        with:
+            push: false
+            # Using provenance to disable default attestation so it will build only desired images:
+            # https://github.com/orgs/community/discussions/45969
+            provenance: false
+            set: |
+                *.platform=linux/amd64
+                *.output=type=registry,push-by-digest=true,name-canonical=true
+            files: |
+                docker-bake.hcl
+                build.json
+
+      - name: Set output variables
+        id: bake_metadata
+        run: |
+            .github/workflows/extract-image-names.sh | tee -a "${GITHUB_OUTPUT}"
+        env:
+            BAKE_METADATA: ${{ steps.build-upload.outputs.metadata }}
+
+  test:
+    runns-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+
+      - name: Checkout Repo ⚡️
+        uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry 🔑
+        uses: docker/login-action@v3
+        with:
+            registry: ghcr.io
+            username: ${{ github.actor }}
+            password: ${{ secrets.GITHUB_TOKEN }}
+
+      # pull the image from build step and run tests
+
+  publish:
+      runs-on: ubuntu-latest
+      timeout-minutes: 30
+      strategy:
+        matrix:
+          registry: ["docker.io", "ghcr.io"]
+
+      steps:
+        - uses: actions/checkout@v4
+
+        - name: Login to GitHub Container Registry 🔑
+          uses: docker/login-action@v3
+          with:
+              registry: ghcr.io
+              username: ${{ github.actor }}
+              password: ${{ secrets.GITHUB_TOKEN }}
+
+        - name: Login to DockerHub 🔑
+          uses: docker/login-action@v3
+          if: inputs.registry == 'docker.io'
+          with:
+              registry: docker.io
+              username: ${{ secrets.DOCKER_USERNAME }}
+              password: ${{ secrets.DOCKER_PASSWORD }}
+
+        - name: Read build variables
+          id: build_vars
+          run: |
+              vars=$(cat build.json | jq -c '[.variable | to_entries[] | {"key": .key, "value": .value.default}] | from_entries')
+              echo "vars=$vars" | tee -a "${GITHUB_OUTPUT}"
+
+        - name: Docker meta
+          id: meta
+          uses: docker/metadata-action@v5
+          env: ${{ fromJSON(steps.build_vars.outputs.vars) }}
+          with:
+              images: ${{ matrix.registry }}/${{ github.repository_owner }}/build-machine
+              tags: |
+                  type=raw,value={{tag}},enable=${{ github.ref_type == 'tag' && ! startsWith(github.ref_name, 'v') }}
+                  type=raw,value=gnu-compiler-${{ env.GNU_COMPILER_VERSION }},enable=${{ github.ref_type == 'tag'  && startsWith(github.ref_name, 'v') }}
+                  type=raw,value=libxc-${{ env.LIBXC_VERSION }},enable=${{ github.ref_type == 'tag' && startsWith(github.ref_name, 'v') }}
+                  type=raw,value=lapack-${{ env.LAPACK_VERSION }},enable=${{ github.ref_type == 'tag' && startsWith(github.ref_name, 'v') }}
+                  type=match,pattern=v(\d{4}\.\d{4}(-.+)?),group=1
+
+        - name: Determine source image
+          id: images
+          run: |
+              src=$(echo '${{ inputs.images }}'| jq -cr '.[("${{ matrix.target }}"|ascii_upcase|sub("-"; "_"; "g")) + "_IMAGE"]')
+              echo "src=$src" | tee -a "${GITHUB_OUTPUT}"
+
+        - name: Push image
+          uses: akhilerm/tag-push-action@v2.2.0
+          with:
+              src: ${{ steps.images.outputs.src }}
+              dst: ${{ steps.meta.outputs.tags }}
+
+        - name: Docker Hub Description
+          if: inputs.registry == 'docker.io'
+          uses: peter-evans/dockerhub-description@v4
+          with:
+              username: ${{ secrets.DOCKER_USERNAME }}
+              password: ${{ secrets.DOCKER_PASSWORD }}
+              repository: aiidalab/${{ matrix.target }}
+              short-description: ${{ github.event.repository.description }}
