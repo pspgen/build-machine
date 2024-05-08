@@ -145,7 +145,7 @@ jobs:
               images: ghcr.io/${{ github.repository_owner }}/build-machine
               tags: |
                   type=edge,enable={{is_default_branch}}
-                  type=raw,value={{tag}},enable=${{ github.ref_type == 'tag' && ! startsWith(github.ref_name, 'v') }}
+                  type=raw,value={{tag}},enable=${{ github.ref_type == 'tag' && startsWith(github.ref_name, 'v') }}
                   type=raw,value=gnu-compiler-${{ env.GNU_COMPILER_VERSION }},enable=${{ github.ref_type == 'tag'  && startsWith(github.ref_name, 'v') }}
                   type=raw,value=libxc-${{ env.LIBXC_VERSION }},enable=${{ github.ref_type == 'tag' && startsWith(github.ref_name, 'v') }}
                   type=raw,value=lapack-${{ env.LAPACK_VERSION }},enable=${{ github.ref_type == 'tag' && startsWith(github.ref_name, 'v') }}
