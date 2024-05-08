@@ -19,7 +19,7 @@ variable "LAPACK_VERSION" {
 }
 
 target "base" {
-    tags = ["${ORGANIZATION}/build-machine:newly-baked"]
+    tags = ["${ORGANIZATION}/build-machine:latest"]
     context = "."
     contexts = {
         base-image = "docker-image://${BASE_IMAGE}"
