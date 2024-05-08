@@ -102,6 +102,9 @@ jobs:
       strategy:
         matrix:
           registry: ["docker.io", "ghcr.io"]
+      if: >-
+          github.repository == 'pspgen/build-machine'
+          && github.ref_type == 'tag'
 
       steps:
         - uses: actions/checkout@v4
