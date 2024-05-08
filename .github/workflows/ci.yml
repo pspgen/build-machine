@@ -60,7 +60,7 @@ jobs:
             provenance: false
             set: |
                 *.platform=linux/amd64
-                *.output=type=registry,push-by-digest=true,name-canonical=true
+                *.output=type=registry,name-canonical=true
                 *.cache-from=type=gha
                 *.cache-to=type=gha,mode=max
 
