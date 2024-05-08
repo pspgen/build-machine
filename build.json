@@ -1,0 +1,16 @@
+{
+    "variable": {
+        "BASE_IMAGE": {
+            "default": "ubuntu:focal"
+        },
+        "LIBXC_VERSION": {
+            "default": "4.3.4"
+        },
+        "GNU_COMPILER_VERSION": {
+            "default": "7"
+        },
+        "LAPACK_VERSION": {
+            "default": "3.10.1"
+        }
+    }
+}

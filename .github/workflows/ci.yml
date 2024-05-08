@@ -1,0 +1,184 @@
+---
+name: Build images and run tests and publish
+
+on:
+  pull_request:
+  push:
+      branches:
+          - main
+      tags:
+          - "v*"
+  workflow_dispatch:  
+
+env:
+  BUILDKIT_PROGRESS: plain
+  FORCE_COLOR: 1
+
+# https://docs.github.com/en/actions/using-jobs/using-concurrency
+concurrency:
+    # only cancel in-progress jobs or runs for the current workflow - matches against branch & tags
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    outputs:
+      image: ${{ steps.bake_metadata.outputs.image }}
+
+    steps:
+      - name: Checkout Repo ⚡️
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        if: ${{ inputs.platforms != 'linux/amd64' }}
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry 🔑
+        uses: docker/login-action@v3
+        with:
+            registry: ghcr.io
+            username: ${{ github.actor }}
+            password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+
+      - uses: crazy-max/ghaction-github-runtime@v3
+      - name: Build and upload to ghcr.io 📤
+        id: build-upload
+        uses: docker/bake-action@v4
+        with:
+            push: true
+            # Using provenance to disable default attestation so it will build only desired images:
+            # https://github.com/orgs/community/discussions/45969
+            provenance: false
+            set: |
+                *.platform=linux/amd64
+                *.output=type=registry,name-canonical=true,push-by-digest=true
+                *.cache-from=type=gha
+                *.cache-to=type=gha,mode=max
+
+            files: |
+                docker-bake.hcl
+                build.json
+                .github/workflows/env.hcl
+
+      - name: Set output variables
+        id: bake_metadata
+        run: |
+            .github/workflows/extract-image-name.sh | tee -a "${GITHUB_OUTPUT}"
+        env:
+            BAKE_METADATA: ${{ steps.build-upload.outputs.metadata }}
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: build
+
+    steps:
+
+      - name: Checkout Repo ⚡️
+        uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry 🔑
+        uses: docker/login-action@v3
+        with:
+            registry: ghcr.io
+            username: ${{ github.actor }}
+            password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run container checking libraries exist in the container
+        run: |
+          docker run --rm ${{ needs.build.outputs.image }} /bin/bash -c "ls -l /usr/local" > /tmp/ls-l.txt
+          if grep -q libxc /tmp/ls-l.txt; then
+              echo "libxc found"
+          else
+              echo "libxc not found"
+              exit 1
+          fi
+
+          if grep -q lapack /tmp/ls-l.txt; then
+              echo "lapack found"
+          else
+              echo "lapack not found"
+              exit 1
+          fi
+
+  publish:
+      runs-on: ubuntu-latest
+      timeout-minutes: 30
+      needs: [build, test]
+      strategy:
+        matrix:
+          registry: ["docker.io", "ghcr.io"]
+      if: >-
+          github.repository == 'pspgen/build-machine'
+          && (github.ref_type == 'tag' || github.ref_name == 'main')
+
+      steps:
+        - uses: actions/checkout@v4
+
+        - name: Login to GitHub Container Registry 🔑
+          uses: docker/login-action@v3
+          with:
+              registry: ghcr.io
+              username: ${{ github.actor }}
+              password: ${{ secrets.GITHUB_TOKEN }}
+
+        - name: Login to DockerHub 🔑
+          uses: docker/login-action@v3
+          if: inputs.registry == 'docker.io'
+          with:
+              registry: docker.io
+              username: ${{ secrets.DOCKER_USERNAME }}
+              password: ${{ secrets.DOCKER_PASSWORD }}
+
+        - name: Read build variables
+          id: build_vars
+          run: |
+              vars=$(cat build.json | jq -c '[.variable | to_entries[] | {"key": .key, "value": .value.default}] | from_entries')
+              echo "vars=$vars" | tee -a "${GITHUB_OUTPUT}"
+
+        - name: Docker meta
+          id: meta
+          uses: docker/metadata-action@v5
+          env: ${{ fromJSON(steps.build_vars.outputs.vars) }}
+          with:
+              images: ${{ matrix.registry }}/${{ github.repository_owner }}/build-machine
+              tags: |
+                  type=edge,enable={{is_default_branch}}
+                  type=raw,value={{tag}},enable=${{ github.ref_type == 'tag' && ! startsWith(github.ref_name, 'v') }}
+                  type=raw,value=gnu-compiler-${{ env.GNU_COMPILER_VERSION }},enable=${{ github.ref_type == 'tag'  && startsWith(github.ref_name, 'v') }}
+                  type=raw,value=libxc-${{ env.LIBXC_VERSION }},enable=${{ github.ref_type == 'tag' && startsWith(github.ref_name, 'v') }}
+                  type=raw,value=lapack-${{ env.LAPACK_VERSION }},enable=${{ github.ref_type == 'tag' && startsWith(github.ref_name, 'v') }}
+                  type=match,pattern=v(\d{4}\.\d{4}(-.+)?),group=1
+
+        - name: Determine source image
+          id: images
+          run: |
+              src=$(echo '${{ inputs.images }}'| jq -cr '.[("${{ matrix.target }}"|ascii_upcase|sub("-"; "_"; "g")) + "_IMAGE"]')
+              echo "src=$src" | tee -a "${GITHUB_OUTPUT}"
+
+        - name: Push image
+          uses: akhilerm/tag-push-action@v2.2.0
+          with:
+              src: ${{ needs.build.outputs.image }}
+              dst: ${{ steps.meta.outputs.tags }}
+
+        - name: Docker Hub Description
+          if: inputs.registry == 'docker.io'
+          uses: peter-evans/dockerhub-description@v4
+          with:
+              username: ${{ secrets.DOCKER_USERNAME }}
+              password: ${{ secrets.DOCKER_PASSWORD }}
+              repository: pspgen/build-machine
+              short-description: ${{ github.event.repository.description }}

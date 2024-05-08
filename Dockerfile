@@ -1,34 +1,42 @@
-FROM ubuntu:focal
+# syntax=docker/dockerfile:1
+FROM base-image
 
+# Tool chain for building
 RUN apt-get update && apt-get install -y \
     build-essential \
     automake \
     autoconf \
     libtool \
     wget \
-    gfortran-7
+    gfortran-7 && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
-RUN update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-7 7 && \
-    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 7
+ARG GNU_COMPILER_VERSION
+
+RUN update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-${GNU_COMPILER_VERSION} 2 && \
+    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GNU_COMPILER_VERSION} 2 
 
 WORKDIR /build
 
-# compile lapack-3.10.1
-RUN wget -c -O lapack-3.10.1.tar.gz https://github.com/Reference-LAPACK/lapack/archive/refs/tags/v3.10.1.tar.gz && \
-    tar xf lapack-3.10.1.tar.gz && \
-    cd lapack-3.10.1 && \
+ARG LAPACK_VERSION
+
+RUN wget -c -O lapack.tar.gz https://github.com/Reference-LAPACK/lapack/archive/refs/tags/v${LAPACK_VERSION}.tar.gz && \
+    mkdir -p lapack && \
+    tar xf lapack.tar.gz -C lapack --strip-components=1 && \
+    cd lapack && \
     cp INSTALL/make.inc.gfortran make.inc && \
     make lapacklib blaslib && \
     mkdir -p /usr/local/lapack/lib && \
     cp *.a /usr/local/lapack/lib
 
-# Compile libxc-4.3.4
-RUN wget -c -O libxc-4.3.4.tar.gz http://www.tddft.org/programs/libxc/down.php?file=4.3.4/libxc-4.3.4.tar.gz && \
-    tar xf libxc-4.3.4.tar.gz && \
-    cd libxc-4.3.4 && \
+ARG LIBXC_VERSION
+RUN wget -c -O libxc.tar.gz https://gitlab.com/libxc/libxc/-/archive/4.3.4/libxc-4.3.4.tar.gz && \
+    mkdir -p libxc && \
+    tar xf libxc.tar.gz -C libxc --strip-components=1 && \
+    cd libxc && \
     autoreconf -i && \
     ./configure --prefix=/usr/local/libxc && \
     make && make install
 
-WORKDIR /
 RUN rm -rf /build
+WORKDIR /
