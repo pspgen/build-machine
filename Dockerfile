@@ -30,7 +30,7 @@ RUN wget -c -O lapack.tar.gz https://github.com/Reference-LAPACK/lapack/archive/
     cp *.a /usr/local/lapack/lib
 
 ARG LIBXC_VERSION
-RUN wget -c -O libxc.tar.gz https://gitlab.com/libxc/libxc/-/archive/4.3.4/libxc-4.3.4.tar.gz && \
+RUN wget -c -O libxc.tar.gz https://gitlab.com/libxc/libxc/-/archive/${LIBXC_VERSION}/libxc-${LIBXC_VERSION}.tar.gz && \
     mkdir -p libxc && \
     tar xf libxc.tar.gz -C libxc --strip-components=1 && \
     cd libxc && \
