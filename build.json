@@ -4,7 +4,7 @@
             "default": "ubuntu:focal"
         },
         "LIBXC_VERSION": {
-            "default": "4.3.4"
+            "default": "5.2.3"
         },
         "GNU_COMPILER_VERSION": {
             "default": "7"
