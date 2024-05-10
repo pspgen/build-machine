@@ -30,5 +30,5 @@ if [[ -z ${BAKE_METADATA-} ]];then
     exit 1
 fi
 
-image=$(echo "${BAKE_METADATA}" | jq -c '. as $base | to_entries[] | [(.value."image.name"|split(",")[0]),(.value."containerimage.digest")]|join("@")')
+image=$(echo "${BAKE_METADATA}" | jq -c '. as $base | to_entries[] | [(.value."image.name"|split(",")[0]),(.value."containerimage.digest")]|join("@")' | tr -d '"')
 echo "image=$image"

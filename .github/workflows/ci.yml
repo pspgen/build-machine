@@ -151,26 +151,8 @@ jobs:
                   type=raw,value=lapack-${{ env.LAPACK_VERSION }},enable=${{ github.ref_type == 'tag' && startsWith(github.ref_name, 'v') }}
                   type=match,pattern=v(\d{4}\.\d{4}(-.+)?),group=1
 
-        - name: Parse digest name
-          id: parse_digest
-          run: |
-            echo '${{ needs.build.outputs.image }}' | jq -r 'split("@") | {repository: .[0], digest: (.[1] | split(":")[1])}' > /tmp/parse_digest.json
-            echo "repository=$(cat /tmp/parse_digest.json | jq -r '.repository')" | tee -a "${GITHUB_OUTPUT}"
-            echo "digest=$(cat /tmp/parse_digest.json | jq -r '.digest')" | tee -a "${GITHUB_OUTPUT}"
-
-        - name: Pull, tag and push
-          id: retag
-          run: |
-            temp_tag=${{ steps.parse_digest.outputs.repository}}:${{ steps.parse_digest.outputs.digest }}
-
-            docker pull ${{ needs.build.outputs.image }}
-            docker tag ${{ needs.build.outputs.image }} ${temp_tag}
-            docker push ${temp_tag}
-
-            echo "temp_tag=${temp_tag}" | tee -a "${GITHUB_OUTPUT}"
-
         - name: Push tags
           uses: akhilerm/tag-push-action@v2.2.0
           with:
-              src: ${{ steps.retag.outputs.temp_tag }}
+              src: ${{ needs.build.outputs.image }}
               dst: ${{ steps.meta.outputs.tags }}
